@@ -55,15 +55,38 @@ class Flag:
         self.position[1] = ground_equ(self.position[0])+20
 
 
+# --- FONCTION DE SCORE ---
+def score_calc(spaceship, ground, flags):
+    score = 0
+    score -= (ground.equation(spaceship.body.position[0])-spaceship.body.position[1])/3 # distance from the ground
+    score -= abs(spaceship.old_position-spaceship.body.position) # landing speed
 
-def environment_emulation(display, space, clock, FPS, duration, AI, is_best=False):
+    if spaceship.body.position[0] > flags[0].position[0] and spaceship.body.position[0] > flags[1].position[0]:
+        if flags[0].position[0] >= flags[1].position[0]:
+            score -= abs(spaceship.body.position[0] - flags[0].position[0])*10
+        else:
+            score -= abs(spaceship.body.position[0] - flags[1].position[0])*10
+
+    elif spaceship.body.position[0] < flags[0].position[0] and spaceship.body.position[0] < flags[1].position[0]:
+        if flags[0].position[0] <= flags[1].position[0]:
+            score -= abs(spaceship.body.position[0] - flags[0].position[0])*10
+        else:
+            score -= abs(spaceship.body.position[0] - flags[1].position[0])*10
+    
+    return score
+
+
+
+# --- MODE GRAPHIQUE ---
+
+def environment_emulation_display(display, space, clock, FPS, duration, AI, nb_iter_per_AI_training, is_best=False):
     score = 0
     font = pygame.font.Font("font/OpenSans.ttf", 32)
     best_text = font.render("One of the bests", True, (0, 255, 0))
     best_text_rect = best_text.get_rect()
     best_text_rect.move_ip(30, 30)
 
-    for i in range(5):
+    for i in range(nb_iter_per_AI_training):
         # object declaration
         space.gravity = 0, -4000 #random.uniform(-1000, -200)*4
         spaceship = Spaceship(1, 600, 600)
@@ -116,24 +139,59 @@ def environment_emulation(display, space, clock, FPS, duration, AI, is_best=Fals
 
 
         # set score for this AI
-        score -= (ground.equation(spaceship.body.position[0])-spaceship.body.position[1])/3 # distance from the ground
-        score -= abs(spaceship.old_position-spaceship.body.position) # landing speed
-
-        if spaceship.body.position[0] > flag1.position[0] and spaceship.body.position[0] > flag2.position[0]:
-            if flag1.position[0] >= flag2.position[0]:
-                score -= abs(spaceship.body.position[0] - flag1.position[0])*10
-            else:
-                score -= abs(spaceship.body.position[0] - flag2.position[0])*10
-
-        elif spaceship.body.position[0] < flag1.position[0] and spaceship.body.position[0] < flag2.position[0]:
-            if flag1.position[0] <= flag2.position[0]:
-                score -= abs(spaceship.body.position[0] - flag1.position[0])*10
-            else:
-                score -= abs(spaceship.body.position[0] - flag2.position[0])*10
+        score += score_calc(spaceship, ground, (flag1, flag2))
 
 
         space.remove(spaceship.body, spaceship.shape)
         space.remove(ground.body, ground.shape)
 
-    print("score :", score)
+    return score
+
+
+
+
+# --- MODE NON GRAPHIQUE ---
+def environment_emulation(space, FPS, duration, AI, nb_iter_per_AI_training):
+    score = 0
+    clock_counter = 0
+
+    for i in range(nb_iter_per_AI_training):
+        # object declaration
+        space.gravity = 0, -4000 #random.uniform(-1000, -200)*4
+        spaceship = Spaceship(1, 600, 600)
+        space.add(spaceship.body, spaceship.shape)
+
+        ground = Ground(600, 600)
+        space.add(ground.body, ground.shape)
+
+        flag1 = Flag(random.uniform(0, display_width-FLAG_DIFF), ground.equation) #idea : faire en sorte que les drapeaux ne puissent pas être en bordure (pour éviter de récompenser les comportements radicaux)
+        flag2 = Flag(flag1.position[0]+FLAG_DIFF, ground.equation)
+
+
+        continuer = True
+        while continuer:
+            spaceship.old_position = spaceship.body.position
+
+            x, y = convert_coordinates(spaceship.body.position)
+
+            # update
+            space.step(1/FPS)
+            clock_counter += 1
+
+            # AI calculation
+            AI_result = AI.forward([spaceship.old_position[0], spaceship.old_position[1], spaceship.body.position[0], spaceship.body.position[1], spaceship.body.mass, flag1.position[0], flag1.position[1], flag2.position[0], flag2.position[1]])
+            spaceship.body.velocity = Vec2d(spaceship.body.velocity[0] + AI_result[0], spaceship.body.velocity[1] + AI_result[1])
+
+            # exit condition : if on the ground (with an admitted error of 5 pixels) or if the time is elapsed
+            if ground.equation(spaceship.body.position[0])+spaceship.shape.radius+5 >= spaceship.body.position[1] or clock_counter > FPS*duration: # if the spaceship is on the ground
+                continuer = False
+
+
+        # set score for this AI
+        score += score_calc(spaceship, ground, (flag1, flag2))
+
+
+        space.remove(spaceship.body, spaceship.shape)
+        space.remove(ground.body, ground.shape)
+
     return score
