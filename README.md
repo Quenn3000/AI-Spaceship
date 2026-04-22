@@ -1,5 +1,5 @@
 # Qu'est ce que le projet
-Ce projet est une expérience personnelle pour apprendre les algorithmes génétiques, datant de 2021 (donc l'anglais est terrible je crois).
+Ce projet est une expérience personnelle pour apprendre les algorithmes génétiques en utilisant ma librairie de réseaux de neuronnes (également sur git), datant de 2020-2021 (donc l'anglais est terrible je crois).
 Il a été codé en Python3, sans LLM
 
 ## Comment le faire fonctionner
